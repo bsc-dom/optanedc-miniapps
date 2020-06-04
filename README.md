@@ -37,3 +37,14 @@ finishes, it will print in `stdout` the execution time.
 
 If you need to change the dataset size, edit the python script and change the constants value (near
 the beginning).
+
+# Analysis
+
+There is a folder `analysis` where there are some Jupyter notebooks used for analysis and
+figures generation.
+
+You will need to install install `jupyter` and `seaborn` in order to use it.
+
+The notebooks expect to find a csv file with the results, in that same folder. The column names 
+for the csv will depend for each application but in all of them you will need to include the 
+dataset size and the _mode_ (e.g. `ad-wram` or `mm`).
