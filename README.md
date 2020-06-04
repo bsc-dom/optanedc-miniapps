@@ -1,5 +1,5 @@
 # optanedc-miniapps
-Applications for Optane DC evaluation with dataClay
+Applications for Optane DC evaluation with [dataClay](https://dataclay.bsc.es/) active object store.
 
 The following applications can be found in this repository:
 
@@ -10,6 +10,9 @@ The following applications can be found in this repository:
 
 Note that all aplications are self-contained, meaning that the data is randomly
 generated. The timing is based on calls to `time.time()` (wall clock time).
+
+The NVM placement hints for the applications are done through the usage of the
+[`npp2nvm` python library](https://github.com/bsc-dom/npp2nvm/).
 
 ## Registration of the data model
 
