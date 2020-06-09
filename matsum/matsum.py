@@ -22,8 +22,6 @@ MATRIXSIZE = 7
 GENERATE_BLOCKS = True
 STORE_WITH_ALIAS = False
 
-STRATEGY = "mm"
-
 #############################################
 #############################################
 
@@ -75,10 +73,8 @@ def main():
 
 BLOCKSIZE = {blocksize}
 MATRIXSIZE = {matrixsize}
-STRATEGY = {strategy}
 """.format(blocksize=BLOCKSIZE,
-           matrixsize=MATRIXSIZE,
-           strategy=STRATEGY)
+           matrixsize=MATRIXSIZE)
     )
 
     start_time = time.time()

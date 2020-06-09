@@ -30,10 +30,10 @@ class Fragment(DataClayObject):
         np.random.seed(seed)
         values = np.random.f(10, 2, num_values)
 
-        #self.points = np_persist(values)
-        self.points = values
+        self.values = np_persist(values)
+        #self.values = values
 
     @dclayMethod(bins="numpy.ndarray", return_="numpy.ndarray")
     def partial_histogram(self, bins):
-        values, _ = np.histogram(self.points, bins)
+        values, _ = np.histogram(self.values, bins)
         return values

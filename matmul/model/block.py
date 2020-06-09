@@ -18,7 +18,7 @@ class Block(StorageObject):
 
     @dclayMethod(size_x="int", size_y="int")
     def initialize_random(self, size_x, size_y):
-        self.block = np.random.random([size_x, size_y])
+        #self.block = np.random.random([size_x, size_y])
         self.block = np_persist(np.random.random([size_x, size_y]))
         #self.block = np.ones([size_x, size_y])
 
