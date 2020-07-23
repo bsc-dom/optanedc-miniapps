@@ -83,7 +83,7 @@ def matmul():
                 ).reshape((BLOCKSIZE, BLOCKSIZE))
 
                 b_block = np.fromstring(
-                    DAOS_KV["A%02d%02d" % (k, j)],
+                    DAOS_KV["B%02d%02d" % (k, j)],
                     dtype=NP_FROMSTRING_DTYPE
                 ).reshape((BLOCKSIZE, BLOCKSIZE))
 
