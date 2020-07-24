@@ -70,6 +70,11 @@ def matmul():
     matrix_c = ResultMatrixInMemory()
     # matrix_c = ResultMatrixInDaos()
 
+    # This could be trivially optimized by reordering indexes
+    # and caching either a_block or b_block (assuming C in-memory).
+    # *However* it would result in unfair comparisons with the 
+    # previous implementation used elsewhere.
+    # Using the naive algorithm makes sense for a raw comparison.
     for i in range(MATRIXSIZE):
         for j in range(MATRIXSIZE):
             print("Evaluating output cell (%d, %d)" % (i, j))
