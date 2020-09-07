@@ -38,6 +38,14 @@ finishes, it will print in `stdout` the execution time.
 If you need to change the dataset size, edit the python script and change the constants value (near
 the beginning).
 
+# Kernel evaluation
+
+Each application has a `kernel_eval.py` script that can be used in order to evaluate the isolated performance of the kernel routines in different scenarios.
+
+You will need to set up the appropriate environment variables per each application and per each scenario evaluation.
+
+**Caution!** Memory Mode may be tricky to evaluate and probably you may want to consider two different scenarios: fits-in-DRAM and does-not-fit-in-DRAM. You can force each of those two scenarios by changing the `NUMBER_OF_ITERATIONS` environment variable.
+
 # Analysis
 
 There is a folder `analysis` where there are some Jupyter notebooks used for analysis and
