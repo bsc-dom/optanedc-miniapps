@@ -48,7 +48,7 @@ def generate_data(input_size, output_size):
     for _ in range(output_size):
         c = np.zeros([BLOCKSIZE, BLOCKSIZE])
         if EXEC_IN_NVRAM:
-            c = np.persist(c)
+            c = np_persist(c)
         c_blocks.append(c)
 
     return a_blocks, b_blocks, c_blocks
