@@ -1,7 +1,6 @@
 import time
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-from operator import methodcaller
+import os
 
 from dataclay import api
 
@@ -14,118 +13,75 @@ from model.fragment import Fragment
 # Constants / experiment values:
 #############################################
 
-NUMPOINTS = 2000000
-FRAGMENTS = 100
-DIMENSIONS = 5000
-CENTERS = 20
-MODE = 'uniform'
+POINTS_PER_FRAGMENT = int(os.environ["POINTS_PER_FRAGMENT"])
+NUMBER_OF_FRAGMENTS = int(os.environ["NUMBER_OF_FRAGMENTS"])
+DIMENSIONS = int(os.getenv("DIMENSIONS", "500"))
+NUMBER_OF_CENTERS = int(os.getenv("NUMBER_OF_CENTERS", "20"))
+NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
+NUMBER_OF_KMEANS_ITERATIONS = int(os.getenv("NUMBER_OF_KMEANS_ITERATIONS", "10"))
+EXEC_IN_NVRAM = bool(int(os.getenv("EXEC_IN_NVRAM", "0")))
+
 SEED = 42
-ITERATIONS = 5
-PARALLELLISM = 4
-
-GENERATE_FRAGMENTS = True
-STORE_WITH_ALIAS = False
+MODE = 'uniform'
 
 #############################################
 #############################################
+def recompute_centers(partials):
+    aggr = np.sum(partials, axis=0)
+
+    centers = list()
+    for sum_ in aggr:
+        # centers with no elements are removed
+        if sum_[1] != 0:
+            centers.append(sum_[0] / sum_[1])
+    return np.array(centers)
 
 
-def kmeans_frag(fragments, dimensions, num_centres=10, iterations=20, seed=0., epsilon=1e-9, norm='l2'):
-    """
-    A fragment-based K-Means algorithm.
-    Given a set of fragments (which can be either PSCOs or future objects that
-    point to PSCOs), the desired number of clusters and the maximum number of
-    iterations, compute the optimal centres and the index of the centre
-    for each point.
-    PSCO.mat must be a NxD float np.matrix, where D = dimensions
-    :param fragments: Number of fragments
-    :param dimensions: Number of dimensions
-    :param num_centres: Number of centers
-    :param iterations: Maximum number of iterations
-    :param seed: Random seed
-    :param epsilon: Epsilon (convergence distance)
-    :param norm: Norm
-    :return: Final centers and labels
-    """
-    # Choose the norm among the available ones
-    norms = {
-        'l1': 1,
-        'l2': 2,
-    }
-    # Set the random seed
-    np.random.seed(seed)
-    # Centres is usually a very small matrix, so it is affordable to have it in
+def kmeans_frag(fragments):
+    # centers is usually a very small matrix, so it is affordable to have it in
     # the master.
-    centres = np.matrix(
-        [np.random.random(dimensions) for _ in range(num_centres)]
+    centers = np.matrix(
+        [np.random.random(DIMENSIONS) for _ in range(NUMBER_OF_CENTERS)]
     )
 
-    with ThreadPoolExecutor(max_workers=PARALLELLISM) as executor:
-        for it in range(iterations):
-            print("Doing iteration #%d/%d" % (it + 1, iterations))
-            partial_results = executor.map(methodcaller('cluster_and_partial_sums', centres, norms[norm]), fragments)
+    for it in range(NUMBER_OF_KMEANS_ITERATIONS):
+        print("Doing k-means iteration #%d/%d" % (it + 1, NUMBER_OF_KMEANS_ITERATIONS))
 
-            # Bring the partial sums to the master, compute new centres when syncing
-            new_centres = np.matrix(np.zeros(centres.shape))
-            for partial in partial_results:
-                # Mean of means, single step
-                new_centres += partial / float(len(fragments))
+        partials = list()
+        for frag in fragments:
+            partial = frag.partial_sum(centers)
+            partials.append(partial)
 
-            if np.linalg.norm(centres - new_centres, norms[norm]) < epsilon:
-                # Convergence criterion is met
-                break
-            # Convergence criterion is not met, update centres
-            centres = new_centres
+        centers = recompute_centers(partials)
+        # Ignoring any convergence criteria --always doing all iterations for timing purposes.
 
-    # Some technical debt on COMPSs code here, leaving None. Computationally equivalent
-    return centres, None
+    return centers
 
 
 def main():
 
-    print("""Starting experiment with the following:
+    print(f"""Starting experiment with the following:
 
-NUMPOINTS = {numpoints}
-FRAGMENTS = {fragments}
-DIMENSIONS = {dimensions}
-CENTERS = {centers}
-MODE = '{mode}'
-SEED = {seed}
-ITERATIONS = {iterations}
-PARALLELLISM = {parallellism}
-""".format(numpoints=NUMPOINTS,
-           fragments=FRAGMENTS,
-           dimensions=DIMENSIONS,
-           centers=CENTERS,
-           mode=MODE,
-           seed=SEED,
-           iterations=ITERATIONS,
-           parallellism=PARALLELLISM)
-    )
+POINTS_PER_FRAGMENT = {POINTS_PER_FRAGMENT}
+NUMBER_OF_FRAGMENTS = {NUMBER_OF_FRAGMENTS}
+DIMENSIONS = {DIMENSIONS}
+NUMBER_OF_CENTERS = {NUMBER_OF_CENTERS}
+NUMBER_OF_ITERATIONS = {NUMBER_OF_ITERATIONS}
+NUMBER_OF_KMEANS_ITERATIONS = {NUMBER_OF_KMEANS_ITERATIONS}
+EXEC_IN_NVRAM = {EXEC_IN_NVRAM}
+""")
     start_time = time.time()
 
     # Generate the data
     fragment_list = []
-    # Prevent infinite loops in case of not-so-smart users
-    points_per_fragment = NUMPOINTS // FRAGMENTS
 
-    for i, l in enumerate(range(0, NUMPOINTS, points_per_fragment)):
-        alias = "fragment%03d" % i
+    for i in range(NUMBER_OF_FRAGMENTS):
+        fragment = Fragment()
+        fragment.make_persistent()
+        fragment.generate_points(POINTS_PER_FRAGMENT, DIMENSIONS, MODE, SEED + i)
 
-        if GENERATE_FRAGMENTS:
-            print("Generating fragment #%d" % (i + 1))
-            if not STORE_WITH_ALIAS:
-                alias = None
-
-            # Note that the seed is different for each fragment.
-            # This is done to avoid having repeated data.
-            r = min(NUMPOINTS, l + points_per_fragment)
-
-            fragment = Fragment()
-            fragment.make_persistent(alias=alias)
-            fragment.generate_points(r - l, DIMENSIONS, MODE, SEED + l)
-        else:
-            fragment = Fragment.get_by_alias(alias)
+        if EXEC_IN_NVRAM:
+            fragment.persist_to_nvram()
 
         fragment_list.append(fragment)
 
@@ -133,23 +89,43 @@ PARALLELLISM = {parallellism}
     initialization_time = time.time()
     print("Starting kmeans")
 
-    # Run kmeans
-    num_centers = CENTERS
-    centres, labels = kmeans_frag(fragments=fragment_list,
-                                  dimensions=DIMENSIONS,
-                                  num_centres=num_centers,
-                                  iterations=ITERATIONS,
-                                  seed=SEED)
-    print("Ending kmeans")
-
-    kmeans_time = time.time()
-
     print("-----------------------------------------")
     print("-------------- RESULTS ------------------")
     print("-----------------------------------------")
     print("Initialization time: %f" % (initialization_time - start_time))
-    print("Kmeans time: %f" % (kmeans_time - initialization_time))
-    print("-----------------------------------------")
+
+    result_times = list()
+
+    # Run kmeans
+    for i in range(NUMBER_OF_ITERATIONS):
+        start_t = time.time()
+
+        centers = kmeans_frag(fragments=fragment_list)
+
+        end_t = time.time()
+
+        kmeans_time = end_t - start_t
+        print("k-means time (#%d/%d): %f" % (i + 1, NUMBER_OF_ITERATIONS, kmeans_time))
+
+        result_times.append(kmeans_time)
+
+    print("Ending kmeans")
+
+    with open("results_app.csv", "a") as f:
+        for result in result_times:
+            # Mangling everything with a ",".join
+            content = ",".join([
+                str(POINTS_PER_FRAGMENT),
+                str(NUMBER_OF_FRAGMENTS),
+                str(DIMENSIONS),
+                str(NUMBER_OF_CENTERS),
+                str(NUMBER_OF_KMEANS_ITERATIONS),
+                str(int(EXEC_IN_NVRAM)),
+                "?", # MODE, researcher MUST set it
+                str(result)
+            ])
+            f.write(content)
+            f.write("\n")
 
 
 if __name__ == "__main__":

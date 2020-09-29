@@ -10,11 +10,13 @@ performance that can be achieved (as an upper bound).
 import os
 import time
 import numpy as np
+from itertools import cycle
 
 from npp2nvm import np_persist
 
 BLOCKSIZE = int(os.environ["BLOCKSIZE"])
 NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "5"))
+NUMBER_OF_GENERATIONS = int(os.getenv("NUMBER_OF_GENERATIONS", "-1"))
 
 # Certain combinations of those flags make no sense or are ill-defined
 # for instance: EXEC_IN_NVRAM without the other two, which makes no sense.
@@ -66,19 +68,23 @@ MATRIX_SIDE_SIZE: {MATRIX_SIDE_SIZE}
     start_time = time.time()
 
     if MATRIX_SIDE_SIZE < 2:
-        a_blocks, b_blocks, c_blocks = generate_data(NUMBER_OF_ITERATIONS, NUMBER_OF_ITERATIONS)
+        n = NUMBER_OF_GENERATIONS if NUMBER_OF_GENERATIONS > 0 else NUMBER_OF_ITERATIONS
+
+        a_blocks, b_blocks, c_blocks = generate_data(n, n)
         print("Generation time: %f" % (time.time() - start_time))
 
-        kernel_time = list()
-        for a, b, c in zip(a_blocks, b_blocks, c_blocks):
+        evaluation_time = list()
+        for _, a, b, c in zip(range(NUMBER_OF_ITERATIONS), cycle(a_blocks), cycle(b_blocks), cycle(c_blocks)):
             start_time = time.time()
             fma(a, b, c)
-            kernel_time.append(time.time() - start_time)
+            evaluation_time.append(time.time() - start_time)
 
-        print("Execution times for the kernel: %r" % kernel_time)
+        print("Execution times for the kernel: %r" % evaluation_time)
     else:
+        n = NUMBER_OF_GENERATIONS if NUMBER_OF_GENERATIONS > 0 else NUMBER_OF_ITERATIONS
+
         a_blocks, b_blocks, c_blocks = list(), list(), list()
-        for _ in range(NUMBER_OF_ITERATIONS):
+        for _ in range(n):
             a, b, c = generate_data(MATRIX_SIDE_SIZE, 1)
             a_blocks.append(a)
             b_blocks.append(b)
@@ -86,15 +92,31 @@ MATRIX_SIDE_SIZE: {MATRIX_SIDE_SIZE}
 
         print("Generation time: %f" % (time.time() - start_time))
 
-        rowcolmul_time = list()
+        evaluation_time = list()
 
-        for row, column, result in zip(a_blocks, b_blocks, c_blocks):
+        for _, row, column, result in zip(range(NUMBER_OF_ITERATIONS), cycle(a_blocks), cycle(b_blocks), cycle(c_blocks)):
             start_time = time.time()
             for a, b in zip(row, column):
                 fma(a, b, c)
             if RESULT_IN_NVRAM and not EXEC_IN_NVRAM:
                 c = np_persist(c)
 
-            rowcolmul_time.append(time.time() - start_time)
+            evaluation_time.append(time.time() - start_time)
 
-        print("Execution times for the row x column multiplication: %r" % rowcolmul_time)
+        print("Execution times for the row x column multiplication: %r" % evaluation_time)
+
+    with open("results_kernel.csv", "a") as f:
+        for result in evaluation_time[-10:]:
+            # I can't be bothered to use a proper CSV writer, I'm gonna just mangle everything here
+            content = ",".join([
+                str(BLOCKSIZE),
+                str(int(INPUT_IN_NVRAM)),
+                str(int(EXEC_IN_NVRAM)),
+                str(int(RESULT_IN_NVRAM)),
+                str(MATRIX_SIDE_SIZE),
+                "0", # NUMA BINDING, reseracher should explicitly set if appropriate
+                "?", # MODE, researcher MUST set it
+                str(result)
+            ])
+            f.write(content)
+            f.write("\n")

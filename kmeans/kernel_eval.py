@@ -10,40 +10,35 @@ performance that can be achieved (as an upper bound).
 import os
 import time
 import numpy as np
+from itertools import cycle
 
 from npp2nvm import np_persist
+from sklearn.metrics import pairwise_distances
 
 POINTS_PER_FRAGMENT = int(os.environ["POINTS_PER_FRAGMENT"])
-DIMENSIONS = int(os.getenv("DIMENSIONS", "5000"))
+DIMENSIONS = int(os.getenv("DIMENSIONS", "500"))
 NUMBER_OF_CENTERS = int(os.getenv("NUMBER_OF_CENTERS", "20"))
-NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "5"))
+NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
+NUMBER_OF_GENERATIONS = int(os.getenv("NUMBER_OF_GENERATIONS", "-1"))
 EXEC_IN_NVRAM = bool(int(os.getenv("EXEC_IN_NVRAM", "0")))
 
-def cluster_and_partial_sums(mat: np.ndarray, centres: np.ndarray):
-    ret = np.array(np.zeros(centres.shape))
-    n = mat.shape[0]
-    c = centres.shape[0]
-    labels = np.zeros(n, dtype=int)
 
-    # Compute the big stuff
-    associates = np.zeros(c, dtype=int)
-    # Get the labels for each point
-    for (i, point) in enumerate(mat):
-        distances = np.zeros(c)
-        for (j, centre) in enumerate(centres):
-            distances[j] = np.linalg.norm(point - centre, 2)
-        labels[i] = np.argmin(distances)
-        associates[labels[i]] += 1
-
-    # Add each point to its associate centre
-    for (i, point) in enumerate(mat):
-        ret[labels[i]] += point / associates[labels[i]]
-    return ret
+def partial_sum(arr: np.ndarray, centres: np.ndarray):
+    partials = np.zeros((centres.shape[0], 2), dtype=object)
+    close_centres = pairwise_distances(arr, centres).argmin(axis=1)
+    for center_idx in range(len(centres)):
+        indices = np.argwhere(close_centres == center_idx).flatten()
+        partials[center_idx][0] = np.sum(arr[indices], axis=0)
+        partials[center_idx][1] = indices.shape[0]
+    
+    return partials
 
 def generate_data():
     blocks = list()
 
-    for _ in range(NUMBER_OF_ITERATIONS):
+    n = NUMBER_OF_GENERATIONS if NUMBER_OF_GENERATIONS > 0 else NUMBER_OF_ITERATIONS
+
+    for _ in range(n):
         mat = np.array(
             [np.random.random(DIMENSIONS) for __ in range(POINTS_PER_FRAGMENT)]
         )
@@ -68,6 +63,7 @@ POINTS_PER_FRAGMENT: {POINTS_PER_FRAGMENT}
 DIMENSIONS: {DIMENSIONS}
 NUMBER_OF_CENTERS: {NUMBER_OF_CENTERS}
 NUMBER_OF_ITERATIONS: {NUMBER_OF_ITERATIONS}
+NUMBER_OF_GENERATIONS: {NUMBER_OF_GENERATIONS}
 EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
 ***""")
 
@@ -76,12 +72,27 @@ EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
     print("Generation time: %f" % (time.time() - start_time))
 
     kernel_time = list()
-    for block in blocks:
+    for _, block in zip(range(NUMBER_OF_ITERATIONS), cycle(blocks)):
         centers = np.matrix(
             [np.random.random(DIMENSIONS) for _ in range(NUMBER_OF_CENTERS)]
         )
         start_time = time.time()
-        cluster_and_partial_sums(block, centers)
+        partial_sum(block, centers)
         kernel_time.append(time.time() - start_time)
 
     print("Execution times for the kernel: %r" % kernel_time)
+
+    with open("results.csv", "a") as f:
+        for result in kernel_time[-10:]:
+            # I can't be bothered to use a proper CSV writer, I'm gonna just mangle everything here
+            content = ",".join([
+                str(POINTS_PER_FRAGMENT),
+                str(DIMENSIONS),
+                str(NUMBER_OF_CENTERS),
+                str(int(EXEC_IN_NVRAM)),
+                "0", # NUMA BINDING, reseracher should explicitly set if appropriate
+                "?", # MODE, researcher MUST set it
+                str(result)
+            ])
+            f.write(content)
+            f.write("\n")

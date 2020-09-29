@@ -2,6 +2,7 @@ from dataclay import DataClayObject, dclayMethod
 
 import numpy as np
 from npp2nvm import np_persist
+from sklearn.metrics import pairwise_distances
 
 
 class Fragment(DataClayObject):
@@ -11,44 +12,24 @@ class Fragment(DataClayObject):
 
     @dclayImport numpy as np
     @dclayImportFrom npp2nvm import np_persist
+    @dclayImportFrom sklearn.metrics import pairwise_distances
     """
     @dclayMethod()
     def __init__(self):
         self.labels = None
         self.points = None
 
-    @dclayMethod(centres='numpy.ndarray', norm='anything', return_='numpy.ndarray')
-    def cluster_and_partial_sums(self, centres, norm):
-        """
-        Given self (fragment == set of points), declare a CxD matrix A and, for each point p:
-        1) Compute the nearest centre c of p
-        2) Add p / num_points_in_fragment to A[index(c)]
-        3) Set label[index(p)] = c
-        :param centres: Centers
-        :param norm: Norm for normalization
-        :return: Distances to centers of each point
-        """
-        mat = self.points
-        ret = np.array(np.zeros(centres.shape))
-        n = mat.shape[0]
-        c = centres.shape[0]
-        labels = np.zeros(n, dtype=int)
-        self.labels = labels  # Store, as master may retrieve this (last iteration)
-
-        # Compute the big stuff
-        associates = np.zeros(c, dtype=int)
-        # Get the labels for each point
-        for (i, point) in enumerate(mat):
-            distances = np.zeros(c)
-            for (j, centre) in enumerate(centres):
-                distances[j] = np.linalg.norm(point - centre, norm)
-            labels[i] = np.argmin(distances)
-            associates[labels[i]] += 1
-
-        # Add each point to its associate centre
-        for (i, point) in enumerate(mat):
-            ret[labels[i]] += point / associates[labels[i]]
-        return ret
+    @dclayMethod(centers='numpy.ndarray', return_='anything')
+    def partial_sum(self, centers):
+        partials = np.zeros((centers.shape[0], 2), dtype=object)
+        arr = self.points
+        close_centers = pairwise_distances(arr, centers).argmin(axis=1)
+        for center_idx in range(len(centers)):
+            indices = np.argwhere(close_centers == center_idx).flatten()
+            partials[center_idx][0] = np.sum(arr[indices], axis=0)
+            partials[center_idx][1] = indices.shape[0]
+        
+        return partials
 
     @dclayMethod(num_points='int', dim='int', mode='str', seed='int')
     def generate_points(self, num_points, dim, mode, seed):
@@ -78,4 +59,8 @@ class Fragment(DataClayObject):
         if mx > 0.0:
             mat /= mx
 
-        self.points = np_persist(mat)
+        self.points = mat
+
+    @dclayMethod()
+    def persist_to_nvram(self):
+        self.points = np_persist(self.points)

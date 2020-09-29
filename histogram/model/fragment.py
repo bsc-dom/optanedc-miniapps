@@ -30,8 +30,11 @@ class Fragment(DataClayObject):
         np.random.seed(seed)
         values = np.random.f(10, 2, num_values)
 
-        self.values = np_persist(values)
-        #self.values = values
+        self.values = values
+
+    @dclayMethod()
+    def persist_to_nvram(self):
+        self.values = np_persist(self.values)
 
     @dclayMethod(bins="numpy.ndarray", return_="numpy.ndarray")
     def partial_histogram(self, bins):

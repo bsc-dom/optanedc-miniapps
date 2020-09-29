@@ -42,7 +42,6 @@ def matmul(matrix_a, matrix_b):
 
     for i in range(n):
         for j in range(m):
-            print("Evaluating output cell (%d, %d)" % (i, j))
             for k in range(n):
                 matrix_c[i][j].mul_n_isum(matrix_a[i][k], matrix_b[k][j])
             

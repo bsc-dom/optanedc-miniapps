@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import os
 
 from dataclay import api
 
@@ -12,8 +13,11 @@ from model.fragment import Fragment
 # Constants / experiment values:
 #############################################
 
-NUMVALUES = 8000 * 1000 * 1000
-FRAGMENTS = 100
+POINTS_PER_FRAGMENT = int(os.environ["POINTS_PER_FRAGMENT"])
+NUMBER_OF_FRAGMENTS = int(os.environ["NUMBER_OF_FRAGMENTS"])
+NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
+EXEC_IN_NVRAM = bool(int(os.getenv("EXEC_IN_NVRAM", "0")))
+
 SEED = 420
 
 #############################################
@@ -22,14 +26,17 @@ SEED = 420
 
 def generation():
     experiment = list()
-    points_per_frag = NUMVALUES // FRAGMENTS
     seed = SEED
 
-    for i in range(FRAGMENTS):
+    for i in range(NUMBER_OF_FRAGMENTS):
         print("Proceeding to generate fragment #%d" % (i + 1))
         frag = Fragment()
         frag.make_persistent()
-        frag.generate_values(points_per_frag, seed)
+        frag.generate_values(POINTS_PER_FRAGMENT, seed)
+
+        if EXEC_IN_NVRAM:
+            frag.persist_to_nvram()
+        
         experiment.append(frag)
 
         seed += 1
@@ -50,15 +57,15 @@ def histogram(experiment):
 
 def main():
 
-    print("""Starting experiment with the following:
+    print(f"""Starting experiment with the following:
 
-NUMVALUES = {numvalues}
-FRAGMENTS = {fragments}
-SEED = {seed}
-""".format(numvalues=NUMVALUES,
-           fragments=FRAGMENTS,
-           seed=SEED)
-    )
+POINTS_PER_FRAGMENT = {POINTS_PER_FRAGMENT}
+NUMBER_OF_FRAGMENTS = {NUMBER_OF_FRAGMENTS}
+NUMBER_OF_ITERATIONS = {NUMBER_OF_ITERATIONS}
+EXEC_IN_NVRAM = {EXEC_IN_NVRAM}
+
+SEED = {SEED}
+""")
     start_time = time.time()
 
     # Generation of data
@@ -68,25 +75,38 @@ SEED = {seed}
     initialization_time = time.time()
     print("Starting histogram")
 
-    # Run histogram
-    result = histogram(experiment)
-    print("Ending histogram (1st)")
-
-    histogram_time = time.time()
-
-    # Run histogram again
-    result = histogram(experiment)
-    print("Ending histogram (2nd)")
-
-    histogram_time_bis = time.time()
-
     print("-----------------------------------------")
     print("-------------- RESULTS ------------------")
     print("-----------------------------------------")
     print("Initialization time: %f" % (initialization_time - start_time))
-    print("Histogram time (1st run): %f" % (histogram_time - initialization_time))
-    print("Histogram time (2nd run): %f" % (histogram_time_bis - histogram_time))
+
+    result_times = list()
+
+    # Run histogram
+    for i in range(NUMBER_OF_ITERATIONS):
+        start_t = time.time()
+        result = histogram(experiment)
+        end_t = time.time()
+
+        histogram_time = end_t - start_t
+        print("Histogram time (#%d/%d): %f" % (i + 1, NUMBER_OF_ITERATIONS, histogram_time))
+
+        result_times.append(histogram_time)
+
     print("-----------------------------------------")
+
+    with open("results_app.csv", "a") as f:
+        for result in result_times:
+            # Mangling everything with a ",".join
+            content = ",".join([
+                str(POINTS_PER_FRAGMENT),
+                str(NUMBER_OF_FRAGMENTS),
+                str(int(EXEC_IN_NVRAM)),
+                "?", # MODE, researcher MUST set it
+                str(result)
+            ])
+            f.write(content)
+            f.write("\n")
 
 
 if __name__ == "__main__":
