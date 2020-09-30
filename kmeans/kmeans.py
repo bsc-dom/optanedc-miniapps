@@ -38,8 +38,6 @@ def recompute_centers(partials):
 
 
 def kmeans_frag(fragments):
-    # centers is usually a very small matrix, so it is affordable to have it in
-    # the master.
     centers = np.matrix(
         [np.random.random(DIMENSIONS) for _ in range(NUMBER_OF_CENTERS)]
     )
@@ -76,6 +74,8 @@ EXEC_IN_NVRAM = {EXEC_IN_NVRAM}
     fragment_list = []
 
     for i in range(NUMBER_OF_FRAGMENTS):
+        print("Generating fragment #%d" % (i + 1))
+        
         fragment = Fragment()
         fragment.make_persistent()
         fragment.generate_points(POINTS_PER_FRAGMENT, DIMENSIONS, MODE, SEED + i)
