@@ -1,4 +1,5 @@
 # optanedc-miniapps
+
 Applications for Optane DC evaluation with [dataClay](https://dataclay.bsc.es/) active object store.
 
 The following applications can be found in this repository:
@@ -38,7 +39,7 @@ finishes, it will print in `stdout` the execution time.
 If you need to change the dataset size, edit the python script and change the constants value (near
 the beginning).
 
-# Kernel evaluation
+## Kernel evaluation
 
 Each application has a `kernel_eval.py` script that can be used in order to evaluate the isolated performance of the kernel routines in different scenarios.
 
@@ -46,7 +47,7 @@ You will need to set up the appropriate environment variables per each applicati
 
 **Caution!** Memory Mode may be tricky to evaluate and probably you may want to consider two different scenarios: fits-in-DRAM and does-not-fit-in-DRAM. You can force each of those two scenarios by changing the `NUMBER_OF_ITERATIONS` environment variable.
 
-# Analysis
+## Analysis
 
 There is a folder `analysis` where there are some Jupyter notebooks used for analysis and
 figures generation.
@@ -56,8 +57,6 @@ You will need to install install `jupyter` and `seaborn` in order to use it.
 The notebooks expect to find a csv file with the results, in that same folder. The column names 
 for the csv will depend for each application but in all of them you will need to include the 
 dataset size and the _mode_ (e.g. `ad-wram` or `mm`).
-=======
-Applications for Optane DC evaluation with dataClay
 
 # Usage of DAOS -- Optane DC
 
