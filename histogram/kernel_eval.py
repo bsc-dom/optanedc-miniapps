@@ -61,8 +61,8 @@ EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
     print("Execution times for the kernel: %r" % kernel_time)
 
     with open("results_kernel.csv", "a") as f:
-        for result in evaluation_time[-10:]:
-            # I can't be bothered to use a proper CSV writer, I'm gonna just mangle everything here
+        for result in kernel_time[-10:]:
+            # Mangling everything with a ",".join
             content = ",".join([
                 str(POINTS_PER_FRAGMENT),
                 str(int(EXEC_IN_NVRAM)),

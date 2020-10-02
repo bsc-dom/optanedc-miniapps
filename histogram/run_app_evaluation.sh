@@ -43,7 +43,6 @@ function small_experiments() {
 function big_experiments() {
     export POINTS_PER_FRAGMENT=100000000
     export NUMBER_OF_FRAGMENTS=64
-    export NUMBER_OF_ITERATIONS=10
 
     initialize_dataclay
     $COMMAND
@@ -51,7 +50,6 @@ function big_experiments() {
 
     export POINTS_PER_FRAGMENT=2000000
     export NUMBER_OF_FRAGMENTS=3200
-    export NUMBER_OF_ITERATIONS=10
 
     initialize_dataclay
     $COMMAND
@@ -61,6 +59,7 @@ function big_experiments() {
 trap teardown_dataclay EXIT
 COMMAND="numactl -N 1 -m 1 python histogram.py"
 
+export NUMBER_OF_ITERATIONS=10
 ##########################################################
 export EXEC_IN_NVRAM=0
 

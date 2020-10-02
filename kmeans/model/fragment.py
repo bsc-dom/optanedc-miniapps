@@ -8,7 +8,6 @@ from sklearn.metrics import pairwise_distances
 class Fragment(DataClayObject):
     """
     @ClassField points numpy.ndarray
-    @ClassField labels numpy.ndarray
 
     @dclayImport numpy as np
     @dclayImportFrom npp2nvm import np_persist
@@ -16,7 +15,6 @@ class Fragment(DataClayObject):
     """
     @dclayMethod()
     def __init__(self):
-        self.labels = None
         self.points = None
 
     @dclayMethod(centers='numpy.ndarray', return_='anything')

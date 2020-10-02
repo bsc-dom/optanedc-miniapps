@@ -1,6 +1,7 @@
 import time
-import numpy as np
 import os
+import numpy as np
+from sklearn.metrics import pairwise_distances
 
 from dataclay import api
 
@@ -39,7 +40,7 @@ def recompute_centers(partials):
 def partial_sum(centers, fragment):
     partials = np.zeros((centers.shape[0], 2), dtype=object)
 
-    arr = fragment.values
+    arr = fragment.points
 
     close_centers = pairwise_distances(arr, centers).argmin(axis=1)
     for center_idx in range(len(centers)):
@@ -121,7 +122,7 @@ NUMBER_OF_KMEANS_ITERATIONS = {NUMBER_OF_KMEANS_ITERATIONS}
 
     print("Ending kmeans")
 
-    with open("results_app.csv", "a") as f:
+    with open("results_dcnonactive.csv", "a") as f:
         for result in result_times:
             # Mangling everything with a ",".join
             content = ",".join([

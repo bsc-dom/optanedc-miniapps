@@ -82,15 +82,15 @@ EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
 
     print("Execution times for the kernel: %r" % kernel_time)
 
-    with open("results.csv", "a") as f:
+    with open("results_kernel.csv", "a") as f:
         for result in kernel_time[-10:]:
-            # I can't be bothered to use a proper CSV writer, I'm gonna just mangle everything here
+            # Mangling everything with a ",".join
             content = ",".join([
                 str(POINTS_PER_FRAGMENT),
                 str(DIMENSIONS),
                 str(NUMBER_OF_CENTERS),
                 str(int(EXEC_IN_NVRAM)),
-                "0", # NUMA BINDING, reseracher should explicitly set if appropriate
+                "0", # NUMA BINDING, researcher should explicitly set if appropriate
                 "?", # MODE, researcher MUST set it
                 str(result)
             ])

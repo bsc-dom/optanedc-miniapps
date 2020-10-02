@@ -12,6 +12,7 @@ import os
 import time
 import uuid
 import numpy as np
+from sklearn.metrics import pairwise_distances
 
 import pydaos
 
@@ -67,10 +68,10 @@ def partial_sum(centers, frag_idx):
     partials = np.zeros((centers.shape[0], 2), dtype=object)
 
     arr = np.fromstring(
-        DAOS_KV[str(fragment_idx)], 
+        DAOS_KV[str(frag_idx)], 
         dtype=NP_FROMSTRING_DTYPE
     ).reshape(
-        NP_FROMSTRING_SHAPES[fragment_idx]
+        NP_FROMSTRING_SHAPES[frag_idx]
     )
 
     close_centers = pairwise_distances(arr, centers).argmin(axis=1)
@@ -95,7 +96,7 @@ def recompute_centers(partials):
 
 def kmeans_frag():
     centers = np.matrix(
-        [np.random.random(dimensions) for _ in range(NUMBER_OF_CENTERS)]
+        [np.random.random(DIMENSIONS) for _ in range(NUMBER_OF_CENTERS)]
     )
 
     for it in range(NUMBER_OF_KMEANS_ITERATIONS):
@@ -161,7 +162,7 @@ NUMBER_OF_KMEANS_ITERATIONS = {NUMBER_OF_KMEANS_ITERATIONS}
 
     print("Ending kmeans")
 
-    with open("results_app.csv", "a") as f:
+    with open("results_daos.csv", "a") as f:
         for result in result_times:
             # Mangling everything with a ",".join
             content = ",".join([
