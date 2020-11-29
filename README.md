@@ -117,7 +117,7 @@ I recommend using tmux/screen/byobu or similar to keep both `daos_server` and `d
 Before starting the Python applications, you need to define pool and container. I will be using the daos management tool. First, the _pool_:
 
 ```
-$ dmg pool create -i --scm-size=200G --nvme-size=0G
+$ dmg pool create -i --scm-size=800G --nvme-size=0G
 ```
 
 As stated above, it will be a DCPM-only setup, thus the `nvme-size=0` parameter.
@@ -127,6 +127,9 @@ This, if succeeds, will spit a UUID for the created pool. Example output:
 ```
 Pool-create command SUCCEEDED: UUID: d8c2786c-75e4-4fd3-914c-a76c49d10676, Service replicas: 0
 ```
+
+**The scripts manage the container by themselves, the following steps are not required
+for typical application benchmarking**
 
 Then use it to create the _container_:
 
@@ -139,6 +142,7 @@ Export the variables and you are ready to start the applications:
 
 ```
 $ export DAOS_POOL=d8c2786c-75e4-4fd3-914c-a76c49d10676
+# DAOS_CONT is not required, current scripts manage those
 $ export DAOS_CONT=886a015d-aa9b-4f77-b94b-ea750b6fbaa1
 ```
 
@@ -146,7 +150,7 @@ Of course, you will need to change all the UUID to use the ones that you get.
 
 ## Start the applications
 
-Ensure that you have `DAOS_POOL` and `DAOS_CONT` environment defined (check `env`) and ensure that `daos` python module is available (`import pydaos` in a Python interpreter should not give an `ImportError`).
+Ensure that you have `DAOS_POOL` environment defined (check `env`) and ensure that `daos` python module is available (`import pydaos` in a Python interpreter should not give an `ImportError`).
 
 Each application has a `<app_name>_daos.py` Python application that runs the application. E.g.:
 
