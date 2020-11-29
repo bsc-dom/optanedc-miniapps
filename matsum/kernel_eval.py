@@ -1,4 +1,4 @@
-"""Evaluate the kernel iself.
+"""Evaluate the kernel itself.
 
 This code is designed with the idea of evaluating the computation required by
 the kernel.
@@ -17,10 +17,13 @@ from npp2nvm import np_persist
 BLOCKSIZE = int(os.environ["BLOCKSIZE"])
 NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
 NUMBER_OF_GENERATIONS = int(os.getenv("NUMBER_OF_GENERATIONS", "-1"))
-EXEC_IN_NVRAM = bool(int(os.getenv("EXEC_IN_NVRAM", "0")))
+INPUT_IN_NVRAM = bool(int(os.getenv("INPUT_IN_NVRAM", "0")))
+RESULT_IN_NVRAM = bool(int(os.getenv("RESULT_IN_NVRAM", "0")))
 
 def block_sum(a: np.ndarray, b: np.ndarray):
     ret = a + b
+    if RESULT_IN_NVRAM:
+        ret = np_persist(ret)
     return ret
 
 def generate_data():
@@ -32,7 +35,7 @@ def generate_data():
         b = np.random.random([BLOCKSIZE, BLOCKSIZE])
 
         # Only for evaluating in-place excution on Optane DC
-        if EXEC_IN_NVRAM:
+        if INPUT_IN_NVRAM:
             a = np_persist(a)
             b = np_persist(b)
 
@@ -47,7 +50,8 @@ if __name__ == "__main__":
 BLOCKSIZE: {BLOCKSIZE}
 NUMBER_OF_ITERATIONS: {NUMBER_OF_ITERATIONS}
 NUMBER_OF_GENERATIONS: {NUMBER_OF_GENERATIONS}
-EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
+INPUT_IN_NVRAM: {INPUT_IN_NVRAM}
+RESULT_IN_NVRAM: {RESULT_IN_NVRAM}
 ***""")
     start_time = time.time()
     a_blocks, b_blocks = generate_data()
@@ -61,14 +65,20 @@ EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
 
     print("Execution times for the kernel: %r" % kernel_time)
 
+    # Are we in Memory Mode?
+    # Easy to know: check if there is more than 1TiB of memory
+    mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    mem_tib = mem_bytes / (1024**4)
+    mode = "MM" if mem_tib > 1 else "AD"
+
     with open("results_kernel.csv", "a") as f:
-        for result in evaluation_time[-10:]:
-            # I can't be bothered to use a proper CSV writer, I'm gonna just mangle everything here
+        for result in kernel_time[-10:]:
+            # Mangling everything with a ",".join
             content = ",".join([
                 str(BLOCKSIZE),
-                str(int(EXEC_IN_NVRAM)),
-                "0", # NUMA BINDING, reseracher should explicitly set if appropriate
-                "?", # MODE, researcher MUST set it
+                str(int(INPUT_IN_NVRAM)),
+                str(int(RESULT_IN_NVRAM)),
+                mode,
                 str(result)
             ])
             f.write(content)

@@ -20,14 +20,14 @@ BLOCKSIZE = int(os.environ["BLOCKSIZE"])
 MATRIXSIZE = int(os.environ["MATRIXSIZE"])
 
 NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
-EXEC_IN_NVRAM = bool(int(os.getenv("EXEC_IN_NVRAM", "0")))
+INPUT_IN_NVRAM = bool(int(os.getenv("INPUT_IN_NVRAM", "0")))
 RESULT_IN_NVRAM = bool(int(os.getenv("RESULT_IN_NVRAM", "0")))
 
 #############################################
 #############################################
 
 def matsum(matrix_a, matrix_b, matrix_c):
-    """Multiply A * B, assign result to C."""
+    """Add A * B, assign result to C."""
 
     n, m = len(matrix_a), len(matrix_b[0])
 
@@ -70,7 +70,7 @@ def prepare_matrices():
             b_block.initialize_random(BLOCKSIZE, BLOCKSIZE)
             # c_block is not initialized, as the numpy matrix addition creates the structure
 
-            if EXEC_IN_NVRAM:
+            if INPUT_IN_NVRAM:
                 a_block.persist_to_nvram()
                 b_block.persist_to_nvram()
 
@@ -84,7 +84,7 @@ def main():
 BLOCKSIZE = {BLOCKSIZE}
 MATRIXSIZE = {MATRIXSIZE}
 NUMBER_OF_ITERATIONS = {NUMBER_OF_ITERATIONS}
-EXEC_IN_NVRAM = {EXEC_IN_NVRAM}
+INPUT_IN_NVRAM = {INPUT_IN_NVRAM}
 RESULT_IN_NVRAM = {RESULT_IN_NVRAM}
 """)
 
@@ -103,13 +103,21 @@ RESULT_IN_NVRAM = {RESULT_IN_NVRAM}
 
     result_times = list()
 
+    ##########################################################################
+    # Matsum is a fast application for which the first execution may have a
+    # bogus execution time (distorted timing).
+    # Workaround for warming up everything nicely is to simply perform a 
+    # "fake" matmul, which will be the slowest one, and ignore it.
+    time.sleep(5)
+    matsum(matrix_a, matrix_b, matrix_c)
+    # Cleanup matrix_c
+    for row in matrix_c:
+        for block in row:
+            block.block = None
+    ##########################################################################
+
     # Run matsum
     for i in range(NUMBER_OF_ITERATIONS):
-        # A sleep, just in case the GC is working
-        # specially important in non-first iteration, 
-        # as the matrix_c has just been cleaned up
-        time.sleep(5)
-
         start_t = time.time()
         
         matsum(matrix_a, matrix_b, matrix_c)
@@ -128,6 +136,13 @@ RESULT_IN_NVRAM = {RESULT_IN_NVRAM}
                 block.block = None
 
     print("Ending matsum")
+    print("-----------------------------------------")
+
+    # Are we in Memory Mode?
+    # Easy to know: check if there is more than 1TiB of memory
+    mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    mem_tib = mem_bytes / (1024**4)
+    mode = "MM" if mem_tib > 1 else "AD"
 
     with open("results_app.csv", "a") as f:
         for result in result_times:
@@ -135,9 +150,9 @@ RESULT_IN_NVRAM = {RESULT_IN_NVRAM}
             content = ",".join([
                 str(BLOCKSIZE),
                 str(MATRIXSIZE),
-                str(int(EXEC_IN_NVRAM)),
+                str(int(INPUT_IN_NVRAM)),
                 str(int(RESULT_IN_NVRAM)),
-                "?", # MODE, researcher MUST set it
+                mode,
                 str(result)
             ])
             f.write(content)

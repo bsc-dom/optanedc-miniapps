@@ -8,12 +8,10 @@ For details and more documentation, check that reference implementation instead
 of this.
 """
 
-from __future__ import print_function
-
 import time
 import os
 import sys
-import operator
+import gc
 
 import numpy as np
 import pydaos
@@ -23,8 +21,11 @@ import pydaos
 # Constants / experiment values:
 #############################################
 
-BLOCKSIZE = 4096
-MATRIXSIZE = 14
+BLOCKSIZE = int(os.environ["BLOCKSIZE"])
+MATRIXSIZE = int(os.environ["MATRIXSIZE"])
+NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
+RESULT_IN_NVRAM = bool(int(os.getenv("RESULT_IN_NVRAM", "0")))
+
 
 DAOS_POOL_UUID = os.environ["DAOS_POOL"]
 DAOS_CONT_UUID = os.environ["DAOS_CONT"]
@@ -65,15 +66,15 @@ class ResultMatrixInDaos:
 
 
 def matsum():
-    """Multiply A * B, return resulting C."""
+    """Eval A + B, return resulting C."""
 
-    matrix_c = ResultMatrixInMemory()
-    # matrix_c = ResultMatrixInDaos()
+    if RESULT_IN_NVRAM:
+        matrix_c = ResultMatrixInDaos()
+    else:
+        matrix_c = ResultMatrixInMemory()
 
     for i in range(MATRIXSIZE):
         for j in range(MATRIXSIZE):
-            print("Evaluating output cell (%d, %d)" % (i, j))
-
             a_block = np.fromstring(
                 DAOS_KV["A%02d%02d" % (i, j)],
                 dtype=NP_FROMSTRING_DTYPE
@@ -100,13 +101,13 @@ def prepare_block(name, coord_i, coord_j):
 
 def main():
 
-    print("""Starting experiment with the following:
+    print(f"""Starting experiment with the following:
 
-BLOCKSIZE = {blocksize}
-MATRIXSIZE = {matrixsize}
-""".format(blocksize=BLOCKSIZE,
-           matrixsize=MATRIXSIZE)
-    )
+BLOCKSIZE = {BLOCKSIZE}
+MATRIXSIZE = {MATRIXSIZE}
+NUMBER_OF_ITERATIONS = {NUMBER_OF_ITERATIONS}
+RESULT_IN_NVRAM = {RESULT_IN_NVRAM}
+""")
 
     start_time = time.time()
 
@@ -119,27 +120,45 @@ MATRIXSIZE = {matrixsize}
     initialization_time = time.time()
     print("Starting matsum")
 
-    # Run matsum
-    matrix_c = matsum()
-
-    print("Ending matsum")
-
-    matmul_time = time.time()
-
-    # print("Second round of matsum")
-    # matrix_c = matsum()
-
-    # print("Ending matsum")
-    # matmul_2nd = time.time()
-
     print("-----------------------------------------")
     print("-------------- RESULTS ------------------")
     print("-----------------------------------------")
     print("Initialization time: %f" % (initialization_time - start_time))
-    print("Matsum time: %f" % (matmul_time - initialization_time))
-    # print("Matmul 2nd round time: %f" % (matmul_2nd - matmul_time))
-    # print("Total time: %f" % (matmul_2nd - start_time))
+
+    result_times = list()
+
+    # Run matsum
+    for i in range(NUMBER_OF_ITERATIONS):
+        start_t = time.time()
+        matrix_c = matsum()
+        end_t = time.time()
+
+        matsum_time = end_t - start_t
+        print("Matsum time (#%d/%d): %f" % (i + 1, NUMBER_OF_ITERATIONS, matsum_time))
+
+        result_times.append(matsum_time)
+
+        # Cleanup matrix_c
+        del matrix_c.blocks
+        gc.collect()
+        # this is required when RESULT_IN_NVRAM is False as app was crashing 
+        # presumably, it was an out of memory
+
     print("-----------------------------------------")
+
+    with open("results_daos.csv", "a") as f:
+        for result in result_times:
+            # Mangling everything with a ",".join
+            content = ",".join([
+                str(BLOCKSIZE),
+                str(MATRIXSIZE),
+                "1",  # INPUT_IN_NVRAM is always 1, it does not make sense otherwise
+                str(int(RESULT_IN_NVRAM)),
+                "DAOS",
+                str(result)
+            ])
+            f.write(content)
+            f.write("\n")
 
 
 if __name__ == "__main__":

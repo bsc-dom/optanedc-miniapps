@@ -15,7 +15,7 @@ from itertools import cycle
 from npp2nvm import np_persist
 
 BLOCKSIZE = int(os.environ["BLOCKSIZE"])
-NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "5"))
+NUMBER_OF_ITERATIONS = int(os.getenv("NUMBER_OF_ITERATIONS", "10"))
 NUMBER_OF_GENERATIONS = int(os.getenv("NUMBER_OF_GENERATIONS", "-1"))
 
 # Certain combinations of those flags make no sense or are ill-defined
@@ -105,17 +105,22 @@ MATRIX_SIDE_SIZE: {MATRIX_SIDE_SIZE}
 
         print("Execution times for the row x column multiplication: %r" % evaluation_time)
 
+    # Are we in Memory Mode?
+    # Easy to know: check if there is more than 1TiB of memory
+    mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    mem_tib = mem_bytes / (1024**4)
+    mode = "MM" if mem_tib > 1 else "AD"
+
     with open("results_kernel.csv", "a") as f:
         for result in evaluation_time[-10:]:
-            # I can't be bothered to use a proper CSV writer, I'm gonna just mangle everything here
+            # Mangling everything with a ",".join
             content = ",".join([
                 str(BLOCKSIZE),
                 str(int(INPUT_IN_NVRAM)),
                 str(int(EXEC_IN_NVRAM)),
                 str(int(RESULT_IN_NVRAM)),
                 str(MATRIX_SIDE_SIZE),
-                "0", # NUMA BINDING, reseracher should explicitly set if appropriate
-                "?", # MODE, researcher MUST set it
+                mode,
                 str(result)
             ])
             f.write(content)

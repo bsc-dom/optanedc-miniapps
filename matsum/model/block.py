@@ -9,7 +9,7 @@ class Block(StorageObject):
     """
     @dclayImport numpy as np
     @dclayImportFrom npp2nvm import np_persist
-    @ClassField block numpy.array
+    @ClassField block numpy.ndarray
     """
 
     @dclayMethod()

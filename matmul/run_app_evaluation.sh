@@ -23,6 +23,10 @@ function teardown_dataclay() {
 }
 
 function small_experiments() {
+    # Note that matmul big experiments is too long, 
+    # that's why we explicitly set the number of iterations
+    export NUMBER_OF_ITERATIONS=10
+
     export BLOCKSIZE=1000
     export MATRIXSIZE=42
 
@@ -39,6 +43,10 @@ function small_experiments() {
 }
 
 function big_experiments() {
+    # Note that matmul big experiments is too long, 
+    # that's why we explicitly set the number of iterations
+    export NUMBER_OF_ITERATIONS=3
+
     export BLOCKSIZE=1000
     export MATRIXSIZE=84
 
@@ -55,13 +63,16 @@ function big_experiments() {
 }
 
 trap teardown_dataclay EXIT
-COMMAND="numactl -N 1 -m 1 python matsum.py"
+COMMAND="numactl -N 1 -m 1 python matmul.py"
 
 
 ##########################################################
-export NUMBER_OF_ITERATIONS=10
+    # Note that matmul big experiments is too long, 
+    # that's why we explicitly set the number of iterations
+    # (see small_experiments and big_experiments functions)
 ##########################################################
 export INPUT_IN_NVRAM=0
+export EXEC_IN_NVRAM=0
 export RESULT_IN_NVRAM=0
 
 small_experiments
@@ -69,7 +80,6 @@ small_experiments
 ##########################################################
 if [ "$SET_NVRAM_FLAGS" = true ] ; then
 export INPUT_IN_NVRAM=1
-export RESULT_IN_NVRAM=0
 
 # Repeat the small experiments
 small_experiments
@@ -80,10 +90,15 @@ big_experiments
 
 ##########################################################
 if [ "$SET_NVRAM_FLAGS" = true ] ; then
-export INPUT_IN_NVRAM=1
 export RESULT_IN_NVRAM=1
 
 # Repeat all previous experiments (but now with RESULT_IN_NVRAM flag set)
+small_experiments
+big_experiments
+
+export EXEC_IN_NVRAM=1
+
+# Slowest batch of experiments: algorithm is run within the NVRAM
 small_experiments
 big_experiments
 fi
