@@ -24,14 +24,14 @@ function teardown_dataclay() {
 
 function small_experiments() {
     export POINTS_PER_FRAGMENT=200000
-    export NUMBER_OF_FRAGMENTS=16
+    export NUMBER_OF_FRAGMENTS=32
 
     initialize_dataclay
     $COMMAND
     teardown_dataclay
 
     export POINTS_PER_FRAGMENT=4000
-    export NUMBER_OF_FRAGMENTS=800
+    export NUMBER_OF_FRAGMENTS=1600
 
     initialize_dataclay
     $COMMAND
@@ -40,14 +40,14 @@ function small_experiments() {
 
 function big_experiments() {
     export POINTS_PER_FRAGMENT=200000
-    export NUMBER_OF_FRAGMENTS=64
+    export NUMBER_OF_FRAGMENTS=256
 
     initialize_dataclay
     $COMMAND
     teardown_dataclay
 
     export POINTS_PER_FRAGMENT=4000
-    export NUMBER_OF_FRAGMENTS=3200
+    export NUMBER_OF_FRAGMENTS=12800
 
     initialize_dataclay
     $COMMAND
