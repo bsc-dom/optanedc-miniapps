@@ -60,14 +60,19 @@ EXEC_IN_NVRAM: {EXEC_IN_NVRAM}
 
     print("Execution times for the kernel: %r" % kernel_time)
 
+    # Are we in Memory Mode?
+    # Easy to know: check if there is more than 1TiB of memory
+    mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    mem_tib = mem_bytes / (1024**4)
+    mode = "MM" if mem_tib > 1 else "AD"
+
     with open("results_kernel.csv", "a") as f:
         for result in kernel_time[-10:]:
             # Mangling everything with a ",".join
             content = ",".join([
                 str(POINTS_PER_FRAGMENT),
                 str(int(EXEC_IN_NVRAM)),
-                "0", # NUMA BINDING, reseracher should explicitly set if appropriate
-                "?", # MODE, researcher MUST set it
+                mode,
                 str(result)
             ])
             f.write(content)

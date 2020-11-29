@@ -13,18 +13,21 @@ function teardown_container() {
     echo "Destroying DAOS container $DAOS_CONT on pool $DAOS_POOL"
 
     daos cont destroy --force --svc=0 --cont=$DAOS_CONT --pool=$DAOS_POOL
+
+    # Those logs tends to grow indefinetely and break things
+    rm /tmp/daos*.log
 }
 
 function small_experiments() {
     export POINTS_PER_FRAGMENT=100000000
-    export NUMBER_OF_FRAGMENTS=16
+    export NUMBER_OF_FRAGMENTS=32
 
     initialize_container
     $COMMAND
     teardown_container
 
     export POINTS_PER_FRAGMENT=2000000
-    export NUMBER_OF_FRAGMENTS=800
+    export NUMBER_OF_FRAGMENTS=1600
 
     initialize_container
     $COMMAND
@@ -33,14 +36,14 @@ function small_experiments() {
 
 function big_experiments() {
     export POINTS_PER_FRAGMENT=100000000
-    export NUMBER_OF_FRAGMENTS=64
+    export NUMBER_OF_FRAGMENTS=256
 
     initialize_container
     $COMMAND
     teardown_container
 
     export POINTS_PER_FRAGMENT=2000000
-    export NUMBER_OF_FRAGMENTS=3200
+    export NUMBER_OF_FRAGMENTS=12800
 
     initialize_container
     $COMMAND

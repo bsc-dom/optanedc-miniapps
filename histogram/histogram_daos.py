@@ -112,6 +112,7 @@ SEED = {SEED}
 
         result_times.append(histogram_time)
 
+    print("Ending histogram")
     print("-----------------------------------------")
 
     with open("results_daos.csv", "a") as f:

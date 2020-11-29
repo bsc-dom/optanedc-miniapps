@@ -93,7 +93,14 @@ SEED = {SEED}
 
         result_times.append(histogram_time)
 
+    print("Ending histogram")
     print("-----------------------------------------")
+
+    # Are we in Memory Mode?
+    # Easy to know: check if there is more than 1TiB of memory
+    mem_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+    mem_tib = mem_bytes / (1024**4)
+    mode = "MM" if mem_tib > 1 else "AD"
 
     with open("results_app.csv", "a") as f:
         for result in result_times:
@@ -102,7 +109,7 @@ SEED = {SEED}
                 str(POINTS_PER_FRAGMENT),
                 str(NUMBER_OF_FRAGMENTS),
                 str(int(EXEC_IN_NVRAM)),
-                "?", # MODE, researcher MUST set it
+                mode,
                 str(result)
             ])
             f.write(content)
