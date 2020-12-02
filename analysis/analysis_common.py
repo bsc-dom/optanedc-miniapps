@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 from matplotlib.legend_handler import HandlerTuple
 from matplotlib.transforms import Bbox
+from matplotlib.textpath import TextPath
 from pandas_ods_reader import read_ods
 
 def plt_clean_legend():
@@ -35,6 +36,7 @@ def expand_modes(df):
 
     df.loc[df['MODE'] == 'MM-DRAM', 'MODE'] = 'MM (hot)'
     df.loc[df['MODE'] == 'MM-NVM', 'MODE'] = 'MM (cold)'
+    df.loc[df['MODE'] == 'AD-PRECOPY', 'MODE'] = 'AD (pre-copy)'
 
 # First and last should be consistent, and reverse for consistency
 palette = list(reversed(sns.color_palette(n_colors=6)))
@@ -45,10 +47,10 @@ def custom_kernel_palette(number_of_columns : int):
 def annotate_dram(ax):
     dram_patch = ax.patches[0]
     ax.annotate("N/A",
-                (dram_patch.get_x() + dram_patch.get_width(), 0),
+                (0, dram_patch.get_y()+dram_patch.get_height()),
                 ha='center',
                 va='center',
-                xytext=(0, 20),
+                xytext=(20, 0),
                 size=15,
                 textcoords = 'offset points')
 
@@ -63,69 +65,87 @@ def legend_tweaks(g, labels, title=None, placement='lower right'):
              loc=placement)
 
 
-def kernel_plot_tweaks(g, factor, legend_title="", rotate=False):
-    if rotate:
-        g.set_xticklabels(g.get_xticklabels(), rotation=25, horizontalalignment='right')
+def kernel_plot_tweaks(g, factor, legend_title=""):
+    _, max_value = g.get_xlim()
 
-    _, max_value = g.get_ylim()
-
-    g.set_ylabel("small objects kernel execution time (s)")
+    g.set_xlabel("small objects kernel execution time (s)")
     handles, _ = g.get_legend_handles_labels()
     g.legend(title=legend_title, handles=handles,
-             labels=["small objects", "big objects"])
-
-    ax2 = g.twinx()
-    ax2.set_ylabel("big objects kernel execution time (s)")
-    ax2.set_ylim(0, max_value * factor)
+             labels=["big objects", "small objects"])
     
+    g.xaxis.set_ticks_position('top')
+
+    ax2 = g.twiny()
+    ax2.set_xlabel("big objects kernel execution time (s)")
+    ax2.set_xlim(0, max_value * factor)
+    
+    # Colorise
     leg = g.get_legend()
-    color0 = leg.legendHandles[0]._facecolor
-    color1 = leg.legendHandles[1]._facecolor
+    color0 = leg.legendHandles[1]._facecolor
+    color1 = leg.legendHandles[0]._facecolor
     
     def dark_color(x, s):
         return x[0]*s, x[1]*s, x[2]*s, x[3]
 
-    ax2.spines['left'].set_color(color0)
-    g.tick_params(axis='y', colors=dark_color(color0, 0.5))
-    g.yaxis.label.set_color(dark_color(color0, 0.5))
+    ax2.spines['bottom'].set_color(color0)
+    g.tick_params(axis='x', colors=dark_color(color0, 0.5))
+    g.xaxis.label.set_color(dark_color(color0, 0.5))
     
-    ax2.spines['right'].set_color(color1)
-    ax2.tick_params(axis='y', colors=dark_color(color1, 0.6))
-    ax2.yaxis.label.set_color(dark_color(color1, 0.6))
+    ax2.spines['top'].set_color(color1)
+    ax2.tick_params(axis='x', colors=dark_color(color1, 0.6))
+    ax2.xaxis.label.set_color(dark_color(color1, 0.6))
 
 
-def xlabel_tweaks(g, n_active, n_non_active, rotate=False):
-    g.set_xlabel("")
-    g.set_ylabel("execution time (s)")
-    if rotate:
-        g.set_xticklabels(g.get_xticklabels(), rotation=90, horizontalalignment='right')
-        position=-0.6
-        ticklength = 50
+def ylabel_tweaks(g, amounts, labels, distance, scale):
+    assert len(amounts) == len(labels)
+    g.set_ylabel("")
+    position=-distance
+    ticklength = 25
+    text_size = 10
+    total = sum(amounts)
+    cum_amounts = [0]
+    for a in amounts:
+        cum_amounts.append(cum_amounts[-1]+a)
+    yticks = [a/total for a in cum_amounts]
+    ylocators = [(a+b)/2 for a, b in zip(yticks, yticks[1:])]
+    for i, l in enumerate(labels):
+        box = TextPath((0,0), l, size=text_size).get_extents()
+        ylocators[i] += ((box.x1-box.x0)/2)*scale
+    
+    ax2 = g.twinx()
+    ax2.spines['right'].set_position(('axes', position))
+    ax2.spines['right'].set_visible(True)
+    ax2.yaxis.set_major_formatter(ticker.NullFormatter())
+    ax2.yaxis.set_minor_locator(ticker.FixedLocator(ylocators))
+    ax2.yaxis.set_minor_formatter(ticker.FixedFormatter(labels))
+    ax2.tick_params(axis='y', which='minor', width=0, length=0, rotation = 90, pad=-(text_size+3))
+    ax2.tick_params(axis='y', which='major', width=1, length=ticklength, labelsize=text_size, direction='out')
+    ax2.set_yticks(yticks)
+
+def save_tweaks(filename, big=False):
+    if big:
+        size = (6, 4)
     else:
-        g.set_xticklabels(g.get_xticklabels(), rotation=30, horizontalalignment='center')
-        position=-0.5
-        ticklength = 25
-
-    total = n_active + n_non_active
-    midtick = n_active / total
-    xticks = [0.0, midtick, 1.0]
-    xlocators = [midtick / 2.0, (1 + midtick) / 2.0]
-
-    ax2 = g.twiny()
-    ax2.spines['top'].set_position(('axes', position))
-    ax2.spines['top'].set_visible(True)
-    ax2.xaxis.set_major_formatter(ticker.NullFormatter())
-    ax2.xaxis.set_minor_locator(ticker.FixedLocator(xlocators))
-    ax2.xaxis.set_minor_formatter(ticker.FixedFormatter(['active', 'non-active']))
-    ax2.tick_params(which='minor', width=0, length=0, labelsize=10)
-    ax2.tick_params(which='major', width=1, length=ticklength, labelsize=10)
-    ax2.set_xticks(xticks)
-
-
-def save_tweaks(filename):
-    size = (10, 4)
+        size = (8, 4)
     plt.gcf().set_size_inches(size[0], size[1])
     b = plt.gcf().get_tightbbox(plt.gcf().canvas.get_renderer())
-    bbox = Bbox.from_bounds(b.x0, b.y0+0.3, b.x1-b.x0+0.05, b.y1-b.y0-0.3)
-    bbox = Bbox.from_bounds(b.x0, b.y0-0.3, b.x1-b.x0, b.y1-b.y0)
+    bbox = Bbox.from_bounds(b.x0, b.y0, b.x1-b.x0+0.1, b.y1-b.y0)
     plt.savefig(filename, bbox_inches=bbox)
+
+    
+def crop_axis(ax, val):
+    ax.set_xlim((0, val))
+    for patch in ax.patches:
+        if patch.get_width() > val:
+            if val >1000:
+                print_val = round(patch.get_width(), -3)
+            else:
+                print_val = round(patch.get_width(), -2)
+            ax.annotate(">%d"%print_val,
+                (val, patch.get_y()+patch.get_height()/1.7),
+                ha='center',
+                va='center',
+                xytext=(-20, 0),
+                size=10,
+                color='w',
+                textcoords = 'offset points')
