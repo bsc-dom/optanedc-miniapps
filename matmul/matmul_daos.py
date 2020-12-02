@@ -151,10 +151,11 @@ RESULT_IN_NVRAM = {RESULT_IN_NVRAM}
         result_times.append(matmul_time)
 
         # Cleanup matrix_c
-        del matrix_c.blocks
-        gc.collect()
-        # this is required when RESULT_IN_NVRAM is False as app was crashing 
-        # presumably, it was an out of memory
+        if not RESULT_IN_NVRAM:
+            del matrix_c.blocks
+            gc.collect()
+            # this is required when RESULT_IN_NVRAM is False as app was crashing 
+            # presumably, it was an out of memory
 
     print("-----------------------------------------")
 
