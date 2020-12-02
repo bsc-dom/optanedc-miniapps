@@ -20,6 +20,9 @@ class Fragment(DataClayObject):
     @dclayMethod(centers='numpy.ndarray', return_='anything')
     def partial_sum(self, centers):
         partials = np.zeros((centers.shape[0], 2), dtype=object)
+        ## Use the copy to evaluate AD (pre-copy) scenario:
+        # arr = self.points.copy()
+        ## Use this for all the remaining active scenarios:
         arr = self.points
         close_centers = pairwise_distances(arr, centers).argmin(axis=1)
         for center_idx in range(len(centers)):
